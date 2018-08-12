@@ -21,13 +21,18 @@ def dsv_to_sav(saveFile, outputDir = ""):
 
 def sav_to_dsv(saveFile, outputDir = ""):
     print("Converting RAW save data to DeSmuMe save data...", end="")
-    baseName = saveFile.split(".sav")[0].split("\\")[-1]
+    baseName = saveFile.split(".sav")[0].split("/")[-1]
     with open(saveFile, "r+b") as f:
         rawSaveData = f.read()
         dsvSaveData = rawSaveData + desmumeFooterData
 
     writeBinary(dsvSaveData, outputDir+baseName+".dsv")
     print("done")
+
+def batchConvertToDsv(inDir, outDir = ""):
+    print(">>> Converting save data...")
+    for i in os.listdir(inDir):
+        sav_to_dsv(inDir+i, outDir)
 
 def main():
     parser = argparse.ArgumentParser(description="Convert NDS save files from dsv to sav and vice versa.")

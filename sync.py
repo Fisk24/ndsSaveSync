@@ -3,13 +3,15 @@ import os
 import re
 import sys
 import compare
+import convert
 import argparse
 
 HOST = "10.71.8.43"
 PORT = 5000
 
 REMOTE_DIR = "/roms/nds"
-LOCAL_DIR = "saves/"
+LOCAL_DIR = "raw_data/"
+DESMUME_SAVES = "Battery/"
 
 def setIPandPort(args):
     global HOST
@@ -20,9 +22,9 @@ def setIPandPort(args):
     HOST = connStr[0]
     PORT = int(connStr[1])
 
-def getRemoteDirWithTime(ftp, _dir=""):
+def getRemoteDir(ftp, _dir=""):
     file_list  = []
-    name_and_time_data = [] # [{name: NAME, mtime: TIMESTAMP}]
+    file_names = [] # [{name: NAME, mtime: TIMESTAMP}]
     ftp.retrlines("LIST "+_dir, file_list.append)
     for file in file_list:
         #print(file)
@@ -33,9 +35,9 @@ def getRemoteDirWithTime(ftp, _dir=""):
         #timestamp = ftp.sendcmd("MDTM "+filename).split(" ")[1]
         #timestamp = compare.ftpToDatetime(timestamp)
 
-        name_and_time_data.append(filename)
+        file_names.append(filename)
 
-    return name_and_time_data
+    return file_names
 
 def retriveSaveData(ftp, remoteDir):
     os.makedirs(LOCAL_DIR, exist_ok=True)
@@ -44,6 +46,20 @@ def retriveSaveData(ftp, remoteDir):
             print("Downloading", _file)
             with open(LOCAL_DIR+_file, 'wb') as save:
                 ftp.retrbinary("RETR "+_file, save.write)
+
+def fetch3dsSaves():
+    print(">>> Fetching remote save data")
+    with FTP() as ftp:
+        ftp.connect(HOST, PORT)
+        ftp.cwd(REMOTE_DIR)
+        remoteDir = getRemoteDir(ftp)
+        retriveSaveData(ftp, remoteDir)
+
+def launchDesmume():
+    if sys.platform == 'win32':
+        os.system("DeSmuME_0.9.11_x64.exe")
+    elif sys.platform == 'linux':
+        os.system("desmume")
 
 if __name__ == "__main__":
 
@@ -56,16 +72,12 @@ if __name__ == "__main__":
 
     #### THIS MODE SHOULD FAIL IF refernce.time EXISTS ####
 
-    print(">>> Fetching remote save data")
-    with FTP() as ftp:
-        ftp.connect(HOST, PORT)
-        ftp.cwd(REMOTE_DIR)
-        remoteDir = getRemoteDirWithTime(ftp)
-        retriveSaveData(ftp, remoteDir)
+    fetch3dsSaves()
+    convert.batchConvertToDsv(LOCAL_DIR, DESMUME_SAVES)
+    compare.generateRefrenceTimestamp()
+    compare.generateRefrenceMD5(DESMUME_SAVES)
+    launchDesmume()
 
-        compare.generateRefrenceTimestamp()
-
-        print(">>> Generated reference time file...")
 
     sys.exit()
         # Real usecase will compare against the converted DSV as those are what will have changed
