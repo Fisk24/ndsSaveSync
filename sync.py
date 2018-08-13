@@ -8,10 +8,13 @@ import argparse
 
 HOST = "10.71.8.43"
 PORT = 5000
+TIMEOUT = 5
 
 REMOTE_DIR = "/roms/nds"
 LOCAL_DIR = "raw_data/"
 DESMUME_SAVES = "Battery/"
+
+ONLINE_MODE = True
 
 def setIPandPort(args):
     global HOST
@@ -48,18 +51,46 @@ def retriveSaveData(ftp, remoteDir):
                 ftp.retrbinary("RETR "+_file, save.write)
 
 def fetch3dsSaves():
-    print(">>> Fetching remote save data")
-    with FTP() as ftp:
-        ftp.connect(HOST, PORT)
-        ftp.cwd(REMOTE_DIR)
-        remoteDir = getRemoteDir(ftp)
-        retriveSaveData(ftp, remoteDir)
+    global ONLINE_MODE
+    try:
+        print(">>> Fetching remote save data")
+        with FTP() as ftp:
+            ftp.connect(HOST, PORT, TIMEOUT)
+            ftp.cwd(REMOTE_DIR)
+            remoteDir = getRemoteDir(ftp)
+            retriveSaveData(ftp, remoteDir)
+    except ConnectionRefusedError as e:
+        print("Connection was refused, or the target 3ds system does not have an FTP server running.")
+        ONLINE_MODE = False
 
 def launchDesmume():
     if sys.platform == 'win32':
         os.system("DeSmuME_0.9.11_x64.exe")
     elif sys.platform == 'linux':
         os.system("desmume")
+
+def reupload3dsSaves():
+    try:
+        print(">>> Reuploading saves files")
+        change_list = compare.getChangeList(DESMUME_SAVES, LOCAL_DIR)
+        with FTP() as ftp:
+            ftp.connect(HOST, PORT, TIMEOUT)
+            ftp.cwd(REMOTE_DIR)
+            for i in change_list:
+                file_name = i.split('.')[0]+'.sav'
+                print("Uploading", file_name)
+                with open(LOCAL_DIR+file_name, 'rb') as outFile:
+                    ftp.storbinary("STOR "+file_name, outFile)
+    except ConnectionRefusedError as e:
+        print("Could not upload the modified save data...")
+        print("Make sure the 3ds ftp server is online and run the script again...")
+
+def createUsageToken():
+    pass
+
+def destroyUsageToken():
+    pass
+
 
 if __name__ == "__main__":
 
@@ -68,28 +99,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
     setIPandPort(args)
 
-    #### DOWNLOAD MODE ####
+    # Add a commandline switch to allow the script to work offline using existing saves
+    # The script should always upload unrecognized saved data (Save data that was not listed in the 3ds's directory)
 
-    #### THIS MODE SHOULD FAIL IF refernce.time EXISTS ####
-
+    createUsageToken()
     fetch3dsSaves()
-    convert.batchConvertToDsv(LOCAL_DIR, DESMUME_SAVES)
-    compare.generateRefrenceTimestamp()
-    compare.generateRefrenceMD5(DESMUME_SAVES)
+    if ONLINE_MODE == True:
+        convert.batchConvertToDsv(LOCAL_DIR, DESMUME_SAVES)
+        compare.generateRefrenceTimestamp()
+        compare.generateRefrenceMD5(DESMUME_SAVES, LOCAL_DIR)
     launchDesmume()
-
+    compare.printMD5ComparisonTable()
+    convert.batchConvertToSav(DESMUME_SAVES, LOCAL_DIR)
+    reupload3dsSaves()
+    destroyUsageToken()
 
     sys.exit()
-        # Real usecase will compare against the converted DSV as those are what will have changed
-
-        #compare.getChangeList(LOCAL_DIR)
-
-
-    #### UPLOAD MODE ####
-
-
-    # Make the command-lind switches for this mode
-    # MAKE A BACKUP OF 3DS' FILES BEFORE EVEN ATTEMPTING TO CREATE THIS MODE
-
-
-    #

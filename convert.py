@@ -12,27 +12,33 @@ def writeBinary(saveData, saveFile):
 
 def dsv_to_sav(saveFile, outputDir = ""):
     print("Converting DeSmuMe save data to RAW save data...", end="")
-    basename = saveFile.split(".dsv")[0].split("\\")[-1]
-    with open(saveFile, "r+b") as f:
-        with mmap.mmap(f.fileno(), 0) as mm:
-            rawsavemap = mm[:desmumeFooterIndex] # Store raw save data minus the desmume footer
-    writeBinary(rawsavemap, outputDir+basename+".sav")
+    basename = saveFile.split(".dsv")[0].split("/")[-1] # Remove the dsv extention from the file name so we dont have to do it later
+    with open(saveFile, "r+b") as f:                    # Open the dsv file
+        with mmap.mmap(f.fileno(), 0) as mm:            # Load the dsv into a memory map so that the file can be edited on the byte level
+            rawsavemap = mm[:desmumeFooterIndex]        # Isolate the save data from the demume footer using list splicing then store it in a variable for later
+    writeBinary(rawsavemap, outputDir+basename+".sav")  # Write the buffer with an sav extention and the conversion process is complete
     print("done")
 
 def sav_to_dsv(saveFile, outputDir = ""):
     print("Converting RAW save data to DeSmuMe save data...", end="")
-    baseName = saveFile.split(".sav")[0].split("/")[-1]
-    with open(saveFile, "r+b") as f:
-        rawSaveData = f.read()
-        dsvSaveData = rawSaveData + desmumeFooterData
-
-    writeBinary(dsvSaveData, outputDir+baseName+".dsv")
+    baseName = saveFile.split(".sav")[0].split("/")[-1] # Remove the sav extention from the file name so we dont have to do it later
+    with open(saveFile, "r+b") as f:                    # Open the sav file in read binary mode
+        rawSaveData = f.read()                          # Read the bytes into a variable for later use
+        dsvSaveData = rawSaveData + desmumeFooterData   # Combine the raw save data with desmume footer data
+    writeBinary(dsvSaveData, outputDir+baseName+".dsv") # Write the new desmume save data to a file with the dsv extention and the conversion process is complete
     print("done")
 
 def batchConvertToDsv(inDir, outDir = ""):
     print(">>> Converting save data...")
-    for i in os.listdir(inDir):
-        sav_to_dsv(inDir+i, outDir)
+    for f in os.listdir(inDir):
+        if f.split(".")[-1].lower() == 'sav':
+            sav_to_dsv(inDir+f, outDir)
+
+def batchConvertToSav(inDir, outDir):
+    print(">>> Converting desmume save data")
+    for f in os.listdir(inDir):
+        if f.split(".")[-1].lower() == 'dsv':
+            dsv_to_sav(inDir+f, outDir)
 
 def main():
     parser = argparse.ArgumentParser(description="Convert NDS save files from dsv to sav and vice versa.")

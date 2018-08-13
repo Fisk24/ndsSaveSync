@@ -15,28 +15,72 @@ def generateRefrenceTimestamp():
     with open('reference.time', 'w') as date:
         date.write(str(refTime))
 
-def generateRefrenceMD5(outDir):
+def generateRefrenceMD5(inDir, outDir):
+    ### Create md5 files for the converted saves ###
     print(">>> Generating refrence MD5's")
-    print("But i can't write them yet :C")
-    for f in os.listdir(outDir):
-        if ".dsv" in f:
-            hash_md5 = hashlib.md5()
-            with open(outDir+f, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hash_md5.update(chunk)
-            print(hash_md5.hexdigest())
+    for f in os.listdir(inDir):
+        if f.split(".")[-1].lower() == 'dsv':
+            md5 = getMD5(inDir+f)
+            writeMD5(md5, outDir+f+".md5")
 
-def getRefrenceTimestamp():
+def decisionKeepReject(refMD5, refTime, modMD5, modTime):
+    md5isDifferent = (refMD5 != modMD5)
+    timeDeltaIsSignificant = ((refTime - modTime).total_seconds() < -10)
+    return (md5isDifferent and timeDeltaIsSignificant)
+
+def getMD5(inFile):
+    hash_md5 = hashlib.md5()
+    with open(inFile, "rb") as dsv:
+        for chunk in iter(lambda: dsv.read(4096), b""):
+            hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+
+def getReferenceTimestamp():
     with open('reference.time', 'r') as date:
         return datetime.strptime(date.read(), '%Y-%m-%d %H:%M:%S.%f')
 
-def getChangeList(changeDir):
-    refTime = getRefrenceTimestamp()
-    for f in os.listdir(changeDir):
-        modTime = datetime.fromtimestamp(os.path.getmtime(changeDir+f))
+def getChangeList(stagDir, refDir):
+    # Return a list of files that have changed given the md5 and date modifyed #
+    change_list = []
+    for candidate in os.listdir(stagDir):
+        refMD5 = readMD5(refDir+candidate+'.md5')
+        modMD5 = getMD5(stagDir+candidate)
+        refTime = getReferenceTimestamp()
+        modTime = datetime.fromtimestamp(os.path.getmtime(stagDir+candidate))
         timeDelta = refTime - modTime
-        print(timeDelta.total_seconds())
+        if (decisionKeepReject(refMD5, refTime, modMD5, modTime) == True):
+            change_list.append(candidate)
+    return change_list
 
+def readMD5(inFile):
+    with open(inFile, 'r') as md5:
+        return md5.read()
+
+def writeMD5(inString, outFile):
+    with open(outFile, "w") as md5:
+        hexdigest = inString
+        md5.write(hexdigest)
+        print(outFile, "-->", hexdigest)
+
+def printMD5ComparisonTable():
+    print(">>> Comparison Table")
+    for i in os.listdir("Battery/"):
+        refMD5 = readMD5('raw_data/'+i+'.md5')
+        modMD5 = getMD5('Battery/'+i)
+        refTime = getReferenceTimestamp()
+        modTime = datetime.fromtimestamp(os.path.getmtime("Battery/"+i))
+        timeDelta = refTime - modTime
+
+        if (decisionKeepReject(refMD5, refTime, modMD5, modTime) == True):
+            decision = "True: Keeping..."
+        else:
+            decision = "False: Rejecting..."
+
+        print(i)
+        print(refMD5, refTime, decision) # Print reference
+        print(modMD5, modTime, timeDelta.total_seconds()) # Print current md5 after change
+
+        print("--------------------------------------")
 
 def main():
     print(datetime.datetime.utcfromtimestamp(\
