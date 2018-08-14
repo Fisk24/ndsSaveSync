@@ -84,12 +84,14 @@ def reupload3dsSaves():
     except ConnectionRefusedError as e:
         print("Could not upload the modified save data...")
         print("Make sure the 3ds ftp server is online and run the script again...")
+        sys.exit()
 
 def createUsageToken():
-    pass
+    with open("usage.token", 'wb') as usage:
+        usage.write(b'x00')
 
 def destroyUsageToken():
-    pass
+    os.remove('usage.token')
 
 
 if __name__ == "__main__":
@@ -102,12 +104,13 @@ if __name__ == "__main__":
     # Add a commandline switch to allow the script to work offline using existing saves
     # The script should always upload unrecognized saved data (Save data that was not listed in the 3ds's directory)
 
-    createUsageToken()
-    fetch3dsSaves()
-    if ONLINE_MODE == True:
-        convert.batchConvertToDsv(LOCAL_DIR, DESMUME_SAVES)
-        compare.generateRefrenceTimestamp()
-        compare.generateRefrenceMD5(DESMUME_SAVES, LOCAL_DIR)
+    if not os.path.isfile('usage.token'):
+        createUsageToken()
+        fetch3dsSaves()
+        if ONLINE_MODE == True:
+            convert.batchConvertToDsv(LOCAL_DIR, DESMUME_SAVES)
+            compare.generateRefrenceTimestamp()
+            compare.generateRefrenceMD5(DESMUME_SAVES, LOCAL_DIR)
     launchDesmume()
     compare.printMD5ComparisonTable()
     convert.batchConvertToSav(DESMUME_SAVES, LOCAL_DIR)
