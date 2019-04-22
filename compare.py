@@ -40,16 +40,17 @@ def getReferenceTimestamp():
         return datetime.strptime(date.read(), '%Y-%m-%d %H:%M:%S.%f')
 
 def getChangeList(stagDir, refDir):
-    # Return a list of files that have changed given the md5 and date modifyed #
+    # Return a list of files that have changed given the md5 and date modified #
     change_list = []
     for candidate in os.listdir(stagDir):
-        refMD5 = readMD5(refDir+candidate+'.md5')
-        modMD5 = getMD5(stagDir+candidate)
-        refTime = getReferenceTimestamp()
-        modTime = datetime.fromtimestamp(os.path.getmtime(stagDir+candidate))
-        timeDelta = refTime - modTime
-        if (decisionKeepReject(refMD5, refTime, modMD5, modTime) == True):
-            change_list.append(candidate)
+        if (".dsv" in candidate):
+            refMD5 = readMD5(refDir+candidate+'.md5')
+            modMD5 = getMD5(stagDir+candidate)
+            refTime = getReferenceTimestamp()
+            modTime = datetime.fromtimestamp(os.path.getmtime(stagDir+candidate))
+            timeDelta = refTime - modTime
+            if (decisionKeepReject(refMD5, refTime, modMD5, modTime) == True):
+                change_list.append(candidate)
     return change_list
 
 def readMD5(inFile):
@@ -62,25 +63,33 @@ def writeMD5(inString, outFile):
         md5.write(hexdigest)
         print(outFile, "-->", hexdigest)
 
-def printMD5ComparisonTable():
+def printMD5ComparisonTable(refDir):
     print(">>> Comparison Table")
-    for i in os.listdir("Battery/"):
-        refMD5 = readMD5('raw_data/'+i+'.md5')
-        modMD5 = getMD5('Battery/'+i)
-        refTime = getReferenceTimestamp()
-        modTime = datetime.fromtimestamp(os.path.getmtime("Battery/"+i))
-        timeDelta = refTime - modTime
+    for i in os.listdir(refDir):
+        if (".dsv" in i):
+            try:
+                refMD5 = readMD5('raw_data/'+i+'.md5')
+            except FileNotFoundError as e:
+                # If the comparison md5 is not found, it is possible that a new save game could have been created locally and would likely need to be uploaded
+                print(e, "Skipping comparison...")
+                print("--------------------------------------")
+                continue
 
-        if (decisionKeepReject(refMD5, refTime, modMD5, modTime) == True):
-            decision = "True: Keeping..."
-        else:
-            decision = "False: Rejecting..."
+            modMD5 = getMD5(refDir+i)
+            refTime = getReferenceTimestamp()
+            modTime = datetime.fromtimestamp(os.path.getmtime(refDir+i))
+            timeDelta = refTime - modTime
 
-        print(i)
-        print(refMD5, refTime, decision) # Print reference
-        print(modMD5, modTime, timeDelta.total_seconds()) # Print current md5 after change
+            if (decisionKeepReject(refMD5, refTime, modMD5, modTime) == True):
+                decision = "True: Keeping..."
+            else:
+                decision = "False: Rejecting..."
 
-        print("--------------------------------------")
+            print(i)
+            print(refMD5, refTime, decision) # Print reference
+            print(modMD5, modTime, timeDelta.total_seconds()) # Print current md5 after change
+
+            print("--------------------------------------")
 
 def main():
     print(datetime.datetime.utcfromtimestamp(\

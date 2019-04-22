@@ -12,7 +12,7 @@ TIMEOUT = 5
 
 REMOTE_DIR = "/roms/nds"
 LOCAL_DIR = "raw_data/"
-DESMUME_SAVES = "Battery/"
+DESMUME_SAVES = "/home/fisk/.config/desmume/"
 
 ONLINE_MODE = True
 
@@ -112,7 +112,7 @@ if __name__ == "__main__":
             compare.generateRefrenceTimestamp()
             compare.generateRefrenceMD5(DESMUME_SAVES, LOCAL_DIR)
     launchDesmume()
-    compare.printMD5ComparisonTable()
+    compare.printMD5ComparisonTable(DESMUME_SAVES)
     convert.batchConvertToSav(DESMUME_SAVES, LOCAL_DIR)
     reupload3dsSaves()
     destroyUsageToken()
